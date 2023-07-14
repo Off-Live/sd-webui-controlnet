@@ -7,7 +7,8 @@ from scripts.processor import preprocessor_sliders_config, model_free_preprocess
 from scripts.logging import logger
 
 from modules.api import api
-
+import base64
+import pickle
 
 def get_api_version() -> int:
     return 2
@@ -191,8 +192,15 @@ def to_base64_nparray(encoding: str):
     Convert a base64 image into the image type the extension uses
     """
 
-    return np.array(api.decode_base64_to_image(encoding)).astype('uint8')
+    try:
+        # Try to decode as a pickled 6-channel image
+        decoded = base64.b64decode(encoding)
+        image = pickle.loads(decoded)
+    except (pickle.UnpicklingError, TypeError, ValueError):
+        # If unpickling fails, try to decode as a 3-channel image
+        image = np.array(api.decode_base64_to_image(encoding)).astype('uint8')
 
+    return image
 
 def get_all_units_in_processing(p: processing.StableDiffusionProcessing) -> List[ControlNetUnit]:
     """
