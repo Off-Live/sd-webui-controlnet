@@ -28,7 +28,9 @@ class ToolButton(gr.Button, gr.components.FormComponent):
     """Small button with single emoji as text, fits inside gradio forms"""
 
     def __init__(self, **kwargs):
-        super().__init__(variant="tool", elem_classes=["cnet-toolbutton"], **kwargs)
+        super().__init__(variant="tool", 
+                         elem_classes=kwargs.pop('elem_classes', []) + ["cnet-toolbutton"], 
+                         **kwargs)
 
     def get_block_name(self):
         return "button"
@@ -303,6 +305,7 @@ class ControlNetUiGroup(object):
                 value=ControlNetUiGroup.trigger_symbol,
                 visible=True,
                 elem_id=f"{elem_id_tabname}_{tabname}_controlnet_trigger_preprocessor",
+                elem_classes=['cnet-run-preprocessor'],
             )
             self.model = gr.Dropdown(
                 list(global_state.cn_models.keys()),
@@ -533,47 +536,17 @@ class ControlNetUiGroup(object):
         if self.type_filter is not None:
 
             def filter_selected(k, pp):
-                default_option = preprocessor_filters[k]
-                pattern = k.lower()
-                preprocessor_list = global_state.ui_preprocessor_keys
-                model_list = list(global_state.cn_models.keys())
-                if pattern == "all":
-                    return [
-                        gr.Dropdown.update(value="none", choices=preprocessor_list),
-                        gr.Dropdown.update(value="None", choices=model_list),
-                    ] + build_sliders("none", pp)
-                filtered_preprocessor_list = [
-                    x
-                    for x in preprocessor_list
-                    if pattern in x.lower() or x.lower() == "none"
-                ]
-                if pattern in ["canny", "lineart", "scribble", "mlsd"]:
-                    filtered_preprocessor_list += [
-                        x for x in preprocessor_list if "invert" in x.lower()
-                    ]
-                filtered_model_list = [
-                    x for x in model_list if pattern in x.lower() or x.lower() == "none"
-                ]
-                if default_option not in filtered_preprocessor_list:
-                    default_option = filtered_preprocessor_list[0]
-                if len(filtered_model_list) == 1:
-                    default_model = "None"
-                    filtered_model_list = model_list
-                else:
-                    default_model = filtered_model_list[1]
-                    for x in filtered_model_list:
-                        if "11" in x.split("[")[0]:
-                            default_model = x
-                            break
+                (
+                    filtered_preprocessor_list,
+                    filtered_model_list,
+                    default_option,
+                    default_model
+                ) =  global_state.select_control_type(k)
                 return [
-                    gr.Dropdown.update(
-                        value=default_option, choices=filtered_preprocessor_list
-                    ),
-                    gr.Dropdown.update(
-                        value=default_model, choices=filtered_model_list
-                    ),
+                    gr.Dropdown.update(value=default_option, choices=filtered_preprocessor_list),
+                    gr.Dropdown.update(value=default_model, choices=filtered_model_list),
                 ] + build_sliders(default_option, pp)
-
+                
             self.type_filter.change(
                 filter_selected,
                 inputs=[self.type_filter, self.pixel_perfect],
